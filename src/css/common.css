@@ -33,6 +33,7 @@ img {
  button[data-start] {
   border-radius: 5px;
   border: blue solid 1px;
+  cursor: pointer;
 }
 
 .timer {

@@ -9,84 +9,90 @@ const hours = document.querySelector('span[data-hours]');
 const minutes = document.querySelector('span[data-minutes]');
 const seconds = document.querySelector('span[data-seconds]');
 
-let selectedDate = null;
+class Timer {
+  constructor({ updateDate }) {
+    this.isActive = true;
+    this.selectedDate = 0;
+    this.timerId = null;
+    this.updateMarkup = updateDate;
+  }
 
-let timeLeft = { days: 00, hours: 00, minutes: 00, seconds: 00 };
-let timerId = null;
+  setSelectedDate(date) {
+    this.selectedDate = date;
+    this.isActive = false;
+  }
 
-const options = {
+  start() {
+    if (this.isActive) {
+      return;
+    }
+
+    this.timerId = setInterval(() => {
+      const currentDate = Date.now();
+      const dateDelta = this.selectedDate - currentDate;
+      const time = this.convertMs(dateDelta);
+      this.isActive = true;
+
+      if (dateDelta <= 0) {
+        this.updateMarkup(this.convertMs(0));
+        clearInterval(this.timerId);
+        Notify.success('Time is finished!!!');
+
+        return;
+      }
+
+      this.updateMarkup(time);
+    }, 1000);
+  }
+
+  convertMs(ms) {
+    const second = 1000;
+    const minute = second * 60;
+    const hour = minute * 60;
+    const day = hour * 24;
+
+    const days = Math.floor(ms / day)
+      .toString()
+      .padStart(2, '0');
+    const hours = Math.floor((ms % day) / hour)
+      .toString()
+      .padStart(2, '0');
+    const minutes = Math.floor(((ms % day) % hour) / minute)
+      .toString()
+      .padStart(2, '0');
+    const seconds = Math.floor((((ms % day) % hour) % minute) / second)
+      .toString()
+      .padStart(2, '0');
+
+    return { days, hours, minutes, seconds };
+  }
+}
+
+const updateClock = date => {
+  days.textContent = date.days;
+  hours.textContent = date.hours;
+  minutes.textContent = date.minutes;
+  seconds.textContent = date.seconds;
+};
+
+const timer = new Timer({ updateDate: updateClock });
+const pickerOptions = {
   enableTime: true,
   time_24hr: true,
   defaultDate: new Date(),
   minuteIncrement: 1,
   onClose(selectedDates) {
     const currentDate = Date.now();
-    const selectedDateInMs = Date.parse(selectedDates[0]);
+    const selectedDate = selectedDates[0];
 
-    if (selectedDateInMs < currentDate) {
-      Notify.warning(
-        `Please choose a date in the future. Selected date: ${selectedDates[0]}`
-      );
-      startBtn.setAttribute('disabled', true);
+    if (selectedDate - currentDate <= 0) {
+      Notify.warning('Please choose a date in the future');
       return;
     }
 
-    if (startBtn.hasAttribute('disabled')) {
-      startBtn.removeAttribute('disabled');
-    }
-
-    selectedDate = selectedDateInMs;
+    timer.setSelectedDate(selectedDates[0]);
   },
 };
 
-const convertMs = ms => {
-  const second = 1000;
-  const minute = second * 60;
-  const hour = minute * 60;
-  const day = hour * 24;
-
-  const days = Math.floor(ms / day)
-    .toString()
-    .padStart(2, '0');
-
-  const hours = Math.floor((ms % day) / hour)
-    .toString()
-    .padStart(2, '0');
-
-  const minutes = Math.floor(((ms % day) % hour) / minute)
-    .toString()
-    .padStart(2, '0');
-
-  const seconds = Math.floor((((ms % day) % hour) % minute) / second)
-    .toString()
-    .padStart(2, '0');
-
-  return { days, hours, minutes, seconds };
-};
-
-const calculate = selectedDate => {
-  if (selectedDate <= Date.now() + 900) {
-    clearInterval(timerId);
-    timeLeft = convertMs(0);
-  }
-  return selectedDate - Date.now();
-};
-
-const onClickBtn = () => {
-  if (selectedDate <= Date.now()) {
-    Notify.warning(`Please choose a date`);
-    return;
-  }
-
-  timerId = setInterval(() => {
-    timeLeft = convertMs(calculate(selectedDate));
-
-    days.textContent = timeLeft.days;
-    hours.textContent = timeLeft.hours;
-    minutes.textContent = timeLeft.minutes;
-    seconds.textContent = timeLeft.seconds;
-  }, 1000);
-};
-
-flatpickr('#datetime-picker', options);
-startBtn.addEventListener('click', onClickBtn);
+flatpickr('#datetime-picker', pickerOptions);
+startBtn.addEventListener('click', timer.start.bind(timer));
